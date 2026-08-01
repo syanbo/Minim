@@ -145,8 +145,9 @@ struct StatusBar: View {
             }
         }
         .font(.callout)
+        // 固定高度：对比面板的底部条按同一个数值排版，分隔线才对得齐
+        .frame(height: BarMetrics.status)
         .padding(.horizontal, 16)
-        .padding(.vertical, 8)
         .background(.bar)
     }
 }

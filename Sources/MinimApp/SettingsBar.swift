@@ -109,9 +109,13 @@ struct SettingsBar: View {
             }
         }
         .font(.callout)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        // 固定高度：对比面板的头部按同一个数值排版，中缝两侧的分隔线才对得齐
+        .frame(
+            maxWidth: .infinity,
+            minHeight: BarMetrics.toolbar, maxHeight: BarMetrics.toolbar,
+            alignment: .leading
+        )
         .padding(.horizontal, 16)
-        .padding(.vertical, 9)
         .background(.bar)
     }
 }

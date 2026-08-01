@@ -106,18 +106,11 @@ struct ComparePanel: View {
                 Spacer()
             }
             .font(.callout)
-            if variants.count > 1 {
-                Picker("对比对象", selection: $selectedVariant) {
-                    ForEach(variants) { variant in
-                        Text(variant.label).tag(variant.id)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
         }
+        // 高度对齐主区域的「标题栏 + 工具条」，两侧分隔线连成一条线；
+        // 产物切换器因此挪到了底部条，头部只放文件名与体积
+        .frame(height: BarMetrics.inspectorHeader)
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
     }
 
     // MARK: - 左右直接对比
@@ -146,7 +139,8 @@ struct ComparePanel: View {
     ) -> some View {
         comparePane(title: title, pixelSize: pixelSize) {
             if task.isAnimated {
-                if let url { AnimatedPlayerView(url: url) }
+                // 动图带逐帧控制条：可暂停、拖动选帧、把当前帧导出成静态图
+                if let url { AnimatedPlayerView(url: url, showsFrameControls: true) }
             } else if let still {
                 Image(nsImage: still)
                     .resizable()
@@ -192,6 +186,18 @@ struct ComparePanel: View {
             }
             .help("在 Finder 中显示")
             Spacer(minLength: 8)
+            if variants.count > 1 {
+                Picker("对比对象", selection: $selectedVariant) {
+                    ForEach(variants) { variant in
+                        Text(variant.label).tag(variant.id)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .controlSize(.small)
+                .fixedSize()
+                .help("选择与原图对比的产物")
+            }
             Picker("底色", selection: $background) {
                 Text("棋盘").tag("checker")
                 Text("白").tag("white")
@@ -203,8 +209,9 @@ struct ComparePanel: View {
             .fixedSize()
             .help("预览底色（透明区域的衬底）")
         }
+        // 与状态栏等高，分隔线对齐
+        .frame(height: BarMetrics.status)
         .padding(.horizontal, 14)
-        .padding(.vertical, 10)
     }
 
     private func loadImages() async {

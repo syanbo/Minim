@@ -45,24 +45,9 @@ jobs:
         run: make app
 
       # 验证 bundle 完整——编译通过不代表工具打进去了。
-      # 用清空的 PATH 运行，确保产物不依赖 Homebrew 环境
+      # 脚本与 release.yml、本地发版流程共用，改验证逻辑只改那一处
       - name: 验证 bundle 不依赖 Homebrew
-        run: |
-          set -uo pipefail
-          fail=0
-          for t in pngquant oxipng gifsicle apngasm; do
-            # 看输出而非退出码：apngasm 即使成功 --version 也返回非 0
-            # （scripts/fetch-tools.sh 里同样这么绕）
-            out="$(env -i PATH=/usr/bin:/bin "dist/轻图.app/Contents/Helpers/$t" --version 2>&1 | head -1 || true)"
-            if [ -z "$out" ]; then
-              echo "❌ $t 无输出——可能没被打进 bundle 或缺依赖"
-              fail=1
-            else
-              printf '✓ %-10s %s\n' "$t" "$out"
-            fi
-          done
-          codesign --verify --deep --strict "dist/轻图.app" || fail=1
-          exit $fail
+        run: bash scripts/verify-bundle.sh "dist/轻图.app"
 
       - name: 冒烟测试：真的压一张图
         run: |

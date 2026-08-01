@@ -212,10 +212,16 @@ struct ComparePanel: View {
         let outputURL = currentVariant?.url
         // 动图由 AnimatedPlayerView 自行解码播放，这里只取尺寸
         let isAnimated = task.isAnimated
+        // 显式标注类型：三元表达式里 nil 与 flatMap 结果混在元组中时，
+        // 旧版编译器会把它推断成 NSObject? 而报错
         let loaded = await Task.detached(priority: .userInitiated) {
-            (
-                isAnimated ? nil : NSImage(contentsOf: sourceURL),
-                isAnimated ? nil : outputURL.flatMap { NSImage(contentsOf: $0) },
+            let original: NSImage? = isAnimated ? nil : NSImage(contentsOf: sourceURL)
+            let output: NSImage? = isAnimated
+                ? nil
+                : outputURL.flatMap { NSImage(contentsOf: $0) }
+            return (
+                original,
+                output,
                 ImageResizer.pixelSize(of: sourceURL),
                 outputURL.flatMap { ImageResizer.pixelSize(of: $0) }
             )

@@ -22,6 +22,21 @@ struct SettingsBar: View {
         return "\(w)×\(h)"
     }
 
+    /// 三个「额外输出一份 X」开关共用的外观。
+    /// 每处 fixedSize 都不能省：窗口变窄时会被挤压，中文标签甚至会压成竖排
+    private func formatToggle(
+        _ label: String, isOn: Binding<Bool>, help: String
+    ) -> some View {
+        Toggle(isOn: isOn) {
+            Text(label)
+                .fixedSize()
+        }
+        .toggleStyle(.switch)
+        .controlSize(.small)
+        .fixedSize()
+        .help(help)
+    }
+
     var body: some View {
         @Bindable var store = store
         // 固定间距、整体居左；末尾 Spacer 吸收多余宽度，最小宽度时右边距与左边一致
@@ -42,34 +57,18 @@ struct SettingsBar: View {
             .help("压缩质量档位；「默认」按原图质量智能决定，「保真」接近无损")
 
 
-            Toggle(isOn: $store.generateWebP) {
-                Text("WebP")
-                    .fixedSize()
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .fixedSize()
-            .help("压缩的同时输出同名 .webp 文件到输出文件夹（GIF 不支持）")
-
-
-            Toggle(isOn: $store.autoConvert) {
-                Text("JPG")
-                    .fixedSize()
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .fixedSize()
-            .help("PNG / 静态 WebP 额外输出一张 JPG（名字-jpg.jpg，透明部分填白底），不替换主输出")
-
-
-            Toggle(isOn: $store.convertToPNG) {
-                Text("PNG")
-                    .fixedSize()
-            }
-            .toggleStyle(.switch)
-            .controlSize(.small)
-            .fixedSize()
-            .help("JPG / 静态 WebP 额外输出一张无损 PNG（名字-png.png），不替换主输出")
+            formatToggle(
+                "WebP", isOn: $store.generateWebP,
+                help: "PNG / JPG 额外输出一份同名 .webp，不替换主输出（GIF 与 WebP 输入不适用）"
+            )
+            formatToggle(
+                "JPG", isOn: $store.autoConvert,
+                help: "PNG / 静态 WebP 额外输出一张 JPG（名字-jpg.jpg，透明部分填白底），不替换主输出"
+            )
+            formatToggle(
+                "PNG", isOn: $store.convertToPNG,
+                help: "JPG / 静态 WebP 额外输出一张无损 PNG（名字-png.png），不替换主输出"
+            )
 
 
             Picker("输出", selection: $store.replaceOriginal) {

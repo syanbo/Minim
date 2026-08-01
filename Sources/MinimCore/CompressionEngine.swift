@@ -16,9 +16,7 @@ public enum CompressionEngine {
         let originalSize = source.fileSizeBytes
 
         let fm = FileManager.default
-        let tempDir = fm.temporaryDirectory
-            .appendingPathComponent("minim", isDirectory: true)
-        try? fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        let scratch = tempDir()
 
         // 动图转换路径：GIF（转换开启时）与动图 WebP/APNG（始终，gifsicle 处理不了它们）
         if let animOutput = settings.anim.output.resolved(for: format) {
@@ -27,13 +25,13 @@ public enum CompressionEngine {
                 return try await convertAnimation(
                     animation, source: source, output: animOutput,
                     originalSize: originalSize, format: format,
-                    settings: settings, tempDir: tempDir, onStage: onStage
+                    settings: settings, tempDir: scratch, onStage: onStage
                 )
             }
         }
         onStage?("压缩中")
 
-        let temp = tempDir
+        let temp = scratch
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension(format.preferredExtension)
         defer { try? fm.removeItem(at: temp) }
@@ -44,7 +42,7 @@ public enum CompressionEngine {
         defer { if let resizedPNGTemp { try? fm.removeItem(at: resizedPNGTemp) } }
         if format == .png, let resize = settings.resize,
            let resized = ImageResizer.resizedImage(from: source, spec: resize) {
-            let resizedTemp = tempDir
+            let resizedTemp = scratch
                 .appendingPathComponent(UUID().uuidString + ".resized.png")
             try ImageResizer.writePNG(resized, to: resizedTemp)
             resizedPNGTemp = resizedTemp
@@ -87,11 +85,16 @@ public enum CompressionEngine {
             keptOriginal: keptOriginal, originalSize: originalSize, producedSize: compressedSize
         )
 
-        // WebP：从源图生成（保证质量基准一致）。GIF 动图不支持；
-        // WebP 输入的主输出本身就是 .webp，同名同目录会把主输出覆盖掉，必须跳过
+        // 三个转换开关共用一条规则：输入是静态图，且目标格式不等于输入格式。
+        // （WebP 输入若再出 WebP，同名同目录会把主输出覆盖掉）
+        func wants(_ enabled: Bool, _ targetExtension: String) -> Bool {
+            enabled && !format.isAnimated && format.preferredExtension != targetExtension
+        }
+
+        // WebP：从源图生成，保证质量基准与主输出一致
         var webpURL: URL?
         var webpSize: Int64?
-        if settings.generateWebP, format != .gif, format != .webp {
+        if wants(settings.generateWebP, "webp") {
             let target = webpDestinationURL(for: source, outputURL: outputURL)
             try? fm.createDirectory(
                 at: target.deletingLastPathComponent(), withIntermediateDirectories: true
@@ -103,16 +106,15 @@ public enum CompressionEngine {
             webpSize = target.fileSizeBytes
         }
 
-        // 转换开关：额外输出候选文件（不替换主输出）。开哪个出哪个，
-        // 输入格式与目标格式相同时跳过（PNG 不再出 PNG、JPG 不再出 JPG）
+        // 转换开关：额外输出候选文件，不替换主输出
         var converted: [ConvertedOutput] = []
-        if settings.autoConvert, format == .png || format == .webp,
+        if wants(settings.autoConvert, "jpg"),
            let candidate = try? jpegCandidate(
                source: source, outputURL: outputURL, settings: settings
            ) {
             converted.append(candidate)
         }
-        if settings.convertToPNG, format == .jpeg || format == .webp,
+        if wants(settings.convertToPNG, "png"),
            let candidate = try? await pngCandidate(
                source: source, outputURL: outputURL, settings: settings
            ) {
@@ -239,19 +241,22 @@ public enum CompressionEngine {
     private static func pngCandidate(
         source: URL, outputURL: URL, settings: CompressionSettings
     ) async throws -> ConvertedOutput? {
-        guard let (image, _) = FormatConverter.analyze(
-            source: source, resize: settings.resize
-        ) else { return nil }
-
         let fm = FileManager.default
-        let raw = tempDir().appendingPathComponent(UUID().uuidString + ".raw.png")
-        let optimized = tempDir().appendingPathComponent(UUID().uuidString + ".png")
+        let dir = tempDir()
+        let raw = dir.appendingPathComponent(UUID().uuidString + ".raw.png")
+        let optimized = dir.appendingPathComponent(UUID().uuidString + ".png")
         defer {
             try? fm.removeItem(at: raw)
             try? fm.removeItem(at: optimized)
         }
 
-        try ImageResizer.writePNG(image, to: raw)
+        // 解码后的位图（大图可达数十 MB）限制在此作用域内，
+        // 不要跨下面等待外部进程的 await 存活
+        do {
+            guard let image = FormatConverter.decode(source: source, resize: settings.resize)
+            else { return nil }
+            try ImageResizer.writePNG(image, to: raw)
+        }
         guard raw.fileSizeBytes > 0 else { return nil }
         // 压缩失败不致命，退回未优化的 PNG
         try? await PNGCompressor.compress(source: raw, to: optimized, preset: settings.quality)
@@ -268,13 +273,12 @@ public enum CompressionEngine {
     ) throws -> ConvertedOutput {
         let fm = FileManager.default
         let baseName = source.deletingPathExtension().lastPathComponent
+        // 输出目录由主输出的 publish 建好，这里不必重复创建
         let target = outputURL.deletingLastPathComponent()
             .appendingPathComponent("\(baseName)\(suffix).\(ext)")
-        try? fm.createDirectory(
-            at: target.deletingLastPathComponent(), withIntermediateDirectories: true
-        )
         try? fm.removeItem(at: target)
-        try fm.copyItem(at: temp, to: target)
+        // move 而非 copy：temp 是本次刚生成的临时文件，同卷下退化为 rename
+        try fm.moveItem(at: temp, to: target)
         return ConvertedOutput(url: target, size: target.fileSizeBytes)
     }
 

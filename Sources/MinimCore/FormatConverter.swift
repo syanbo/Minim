@@ -21,16 +21,21 @@ public enum FormatConverter {
         public var area: Int { width * height }
     }
 
-    /// 解码（含裁剪缩放）并统计透明度与颜色数；返回像素分析和解码后的图像
-    public static func analyze(source: URL, resize: ResizeSpec?) -> (image: CGImage, analysis: Analysis)? {
+    /// 只解码（含裁剪缩放），不做像素统计。
+    /// 无损转换（如转 PNG）用这个，避免为了拿一张图白跑一遍全图扫描
+    public static func decode(source: URL, resize: ResizeSpec?) -> CGImage? {
         guard let src = CGImageSourceCreateWithURL(source as CFURL, nil),
-              var image = CGImageSourceCreateImageAtIndex(src, 0, [
+              let image = CGImageSourceCreateImageAtIndex(src, 0, [
                   kCGImageSourceShouldCache: false,
               ] as CFDictionary)
         else { return nil }
-        if let resize, let resized = ImageResizer.apply(resize, to: image) {
-            image = resized
-        }
+        guard let resize, let resized = ImageResizer.apply(resize, to: image) else { return image }
+        return resized
+    }
+
+    /// 解码（含裁剪缩放）并统计透明度与颜色数；返回像素分析和解码后的图像
+    public static func analyze(source: URL, resize: ResizeSpec?) -> (image: CGImage, analysis: Analysis)? {
+        guard let image = decode(source: source, resize: resize) else { return nil }
 
         let width = image.width
         let height = image.height

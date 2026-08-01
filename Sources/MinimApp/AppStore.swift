@@ -135,14 +135,13 @@ final class AppStore {
         }
     }
 
-    /// 比较与静态图片相关的设置（忽略动图默认参数）
+    /// 比较与静态图片相关的设置：把动图参数对齐后整体比较。
+    /// 不要退回手工逐字段列举——新增设置项时漏掉一个不会报错，
+    /// 只会表现为「改了开关却不提示重新生成」这种难查的静默失效
     private func baseSettingsEqual(_ a: CompressionSettings, _ b: CompressionSettings) -> Bool {
-        a.quality == b.quality
-            && a.generateWebP == b.generateWebP
-            && a.outputMode == b.outputMode
-            && a.resize == b.resize
-            && a.autoConvert == b.autoConvert
-            && a.convertToPNG == b.convertToPNG
+        var normalized = a
+        normalized.anim = b.anim
+        return normalized == b
     }
 
     var doneCount: Int {

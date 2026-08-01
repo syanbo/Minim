@@ -57,6 +57,15 @@ public enum ImageFormat: String, Sendable, CaseIterable {
         case .webp, .webpAnimated: "webp"
         }
     }
+
+    /// 多帧格式。静态/动图的划分只在这里定义一次，
+    /// 别在别处用 `format == .gif` 之类的条件手工展开这个集合
+    public var isAnimated: Bool {
+        switch self {
+        case .gif, .webpAnimated, .apng: true
+        case .png, .jpeg, .webp: false
+        }
+    }
 }
 
 /// 转换开关产生的额外输出（如 basename-jpg.jpg），不替换主输出
@@ -137,9 +146,7 @@ public struct ImageTask: Identifiable, Sendable {
     /// 上次执行时的完整设置快照（含动图参数，用于判断参数是否被修改、提示重试）
     public var lastRunSettings: CompressionSettings?
 
-    public var isAnimated: Bool {
-        format == .gif || format == .webpAnimated || format == .apng
-    }
+    public var isAnimated: Bool { format.isAnimated }
 
     public init?(sourceURL: URL) {
         guard let format = ImageFormat.detect(from: sourceURL) else { return nil }

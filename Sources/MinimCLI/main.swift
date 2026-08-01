@@ -54,7 +54,7 @@ while !args.isEmpty {
         }
     case "--webp":
         settings.generateWebP = true
-    case "--jpg", "--convert":   // --convert 是旧名，保留兼容
+    case "--jpg":
         settings.autoConvert = true
     case "--png":
         settings.convertToPNG = true

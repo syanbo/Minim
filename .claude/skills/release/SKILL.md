@@ -96,11 +96,31 @@ ID=$(gh api repos/syanbo/Minim/releases/tags/v<版本号> --jq '.assets[] | sele
 gh api -X DELETE "repos/syanbo/Minim/releases/assets/$ID"
 ```
 
-## 7. 收尾
+## 7. ⚠️ 同步 Homebrew cask（**最容易忘的一步**）
+
+不更新的话，`brew upgrade` 的用户永远停在旧版本，而且不会有任何报错——静默失效。
+
+cask 在另一个仓库 [`syanbo/homebrew-tap`](https://github.com/syanbo/homebrew-tap)，
+文件是 `Casks/minim.rb`，要改两处：`version` 和 `sha256`。
+
+**sha256 必须取 Release 上那份**（本地重打包过就会不一致，装的人会校验失败）：
+
+```bash
+curl -sL "https://github.com/syanbo/Minim/releases/download/v<版本号>/Minim-<版本号>.dmg" -o /tmp/rel.dmg
+shasum -a 256 /tmp/rel.dmg
+```
+
+改完 `ruby -c Casks/minim.rb` 自检语法，提交推送，然后实测：
+
+```bash
+brew update && brew upgrade --cask minim
+```
+
+## 8. 收尾
 
 - 确认 README 的 Releases 链接仍然正确（指向 `releases/latest`，通常不用改）
 - 报告 Release URL 和附件大小给用户
-- 清理 `/tmp/minim-verify`
+- 清理 `/tmp/minim-verify`、`/tmp/rel.dmg`
 
 ## 不要做的事
 

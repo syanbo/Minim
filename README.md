@@ -13,8 +13,16 @@ SwiftUI 编写，原生 Apple Silicon（arm64），支持深色模式，**压缩
 
 ## 安装
 
-从 [Releases](https://github.com/syanbo/Minim/releases/latest) 下载 DMG，拖进「应用程序」即可。
-所有依赖的压缩工具都已打进 app bundle，**装完不需要 Homebrew**。
+**Homebrew**（推荐，以后跟着 `brew upgrade` 一起更新）：
+
+```bash
+brew install --cask syanbo/tap/minim
+```
+
+**或**从 [Releases](https://github.com/syanbo/Minim/releases/latest) 下载 DMG，拖进「应用程序」。
+
+两种方式都不需要额外装压缩工具 —— pngquant / oxipng / gifsicle / apngasm 已经打进
+app bundle。
 
 首次打开若提示「无法验证开发者」，在「系统设置 → 隐私与安全性」里点「仍要打开」
 （ad-hoc 签名，未做公证）。

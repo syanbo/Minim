@@ -4,7 +4,17 @@ import MinimCore
 
 struct ContentView: View {
     @Environment(AppStore.self) private var store
+    @Environment(UpdateChecker.self) private var updates
     @State private var isDropTargeted = false
+
+    private var updateMessage: String {
+        switch updates.state {
+        case .idle, .checking: "正在检查…"
+        case .upToDate(let current): "已是最新版本（\(current)）"
+        case .updateAvailable(let version, _): "有新版本 \(version)，当前 \(updates.currentVersion)"
+        case .failed(let reason): reason
+        }
+    }
 
     var body: some View {
         @Bindable var store = store
@@ -58,6 +68,22 @@ struct ContentView: View {
             }
         }
         .navigationTitle("轻图")
+        .alert("检查更新", isPresented: Binding(
+            get: { updates.presentsResult },
+            set: { if !$0 { updates.dismiss() } }
+        )) {
+            if case .updateAvailable(_, let url) = updates.state {
+                Button("前往下载") {
+                    NSWorkspace.shared.open(url)
+                    updates.dismiss()
+                }
+                Button("稍后", role: .cancel) { updates.dismiss() }
+            } else {
+                Button("好") { updates.dismiss() }
+            }
+        } message: {
+            Text(updateMessage)
+        }
     }
 }
 

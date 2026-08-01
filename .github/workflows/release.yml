@@ -20,7 +20,7 @@ jobs:
     outputs:
       version: ${{ steps.meta.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # tag 与 Info.plist 对不上就别往下走了，发出去的包版本号会是错的
       - name: 校验版本号与 tag 一致
@@ -127,7 +127,7 @@ jobs:
           fi
 
       # 用 deploy key 而不是 PAT：权限只限 homebrew-tap 一个仓库，且不会到期
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: syanbo/homebrew-tap
           ssh-key: ${{ secrets.TAP_DEPLOY_KEY }}

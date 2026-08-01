@@ -38,10 +38,11 @@ struct ComparePanel: View {
         if let webpURL = result.webpURL, let webpSize = result.webpSize {
             list.append(Variant(id: 1, label: "WebP", url: webpURL, size: webpSize))
         }
-        if let convertedURL = result.convertedURL, let convertedSize = result.convertedSize {
+        // 转换候选可能有多个（WebP 输入同时开 PNG / JPG），id 从 2 起顺延
+        for (offset, candidate) in result.converted.enumerated() {
             list.append(Variant(
-                id: 2, label: convertedURL.pathExtension.uppercased(),
-                url: convertedURL, size: convertedSize
+                id: 2 + offset, label: candidate.label,
+                url: candidate.url, size: candidate.size
             ))
         }
         return list

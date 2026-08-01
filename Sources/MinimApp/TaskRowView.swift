@@ -291,8 +291,8 @@ struct TaskRowView: View {
                     Text("· WebP \(ByteFormatter.string(webpSize))")
                         .foregroundStyle(.secondary)
                 }
-                if let convertedURL = result.convertedURL, let convertedSize = result.convertedSize {
-                    Text("· \(convertedURL.pathExtension.uppercased()) \(ByteFormatter.string(convertedSize))")
+                ForEach(result.converted, id: \.url) { candidate in
+                    Text("· \(candidate.label) \(ByteFormatter.string(candidate.size))")
                         .foregroundStyle(.purple)
                 }
             }

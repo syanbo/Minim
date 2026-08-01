@@ -29,8 +29,9 @@ struct ContentView: View {
             Divider()
             StatusBar()
         }
-        // 最小宽度加在主内容区：面板展开时窗口被撑大，主区域不会被挤压
-        .frame(minWidth: 700, minHeight: 500)
+        // 最小宽度加在主内容区：面板展开时窗口被撑大，主区域不会被挤压。
+        // 880 = 工具条 7 个控件的实测本征宽度（动图按钮标签最长时）
+        .frame(minWidth: 880, minHeight: 500)
         .dropDestination(for: URL.self) { urls, _ in
             store.add(urls: urls)
             return true
@@ -66,7 +67,7 @@ struct StatusBar: View {
     var body: some View {
         HStack {
             if store.tasks.isEmpty {
-                Text("拖入 PNG / JPG / GIF / APNG / 动图 WebP 开始压缩")
+                Text("拖入 PNG / JPG / WebP / GIF / APNG 开始压缩")
                     .foregroundStyle(.secondary)
             } else {
                 Text("\(store.doneCount)/\(store.tasks.count) 张完成")

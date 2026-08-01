@@ -29,6 +29,7 @@ struct SettingsBar: View {
             HStack(spacing: 6) {
                 Text("质量")
                     .foregroundStyle(.secondary)
+                    .fixedSize()
                 Picker("质量", selection: $store.quality) {
                     ForEach(QualityPreset.allCases) { preset in
                         Text(preset.label).tag(preset)
@@ -58,7 +59,17 @@ struct SettingsBar: View {
             .toggleStyle(.switch)
             .controlSize(.small)
             .fixedSize()
-            .help("每张 PNG 额外输出一张 JPG（名字-jpg.jpg，透明部分填白底），不替换主输出")
+            .help("PNG / 静态 WebP 额外输出一张 JPG（名字-jpg.jpg，透明部分填白底），不替换主输出")
+
+
+            Toggle(isOn: $store.convertToPNG) {
+                Text("PNG")
+                    .fixedSize()
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .fixedSize()
+            .help("JPG / 静态 WebP 额外输出一张无损 PNG（名字-png.png），不替换主输出")
 
 
             Picker("输出", selection: $store.replaceOriginal) {

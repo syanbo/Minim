@@ -12,9 +12,13 @@ final class AppStore {
     var generateWebP = false {
         didSet { defaults.set(generateWebP, forKey: "generateWebP") }
     }
-    /// 转 JPG：每张 PNG 额外输出一张 JPG
+    /// 转 JPG：PNG / 静态 WebP 额外输出一张 JPG
     var autoConvert = false {
         didSet { defaults.set(autoConvert, forKey: "autoConvert") }
+    }
+    /// 转 PNG：JPG / 静态 WebP 额外输出一张无损 PNG
+    var convertToPNG = false {
+        didSet { defaults.set(convertToPNG, forKey: "convertToPNG") }
     }
     /// 替换原图模式：只对之后添加的图片生效，不回溯已完成任务
     /// （否则源文件已被覆盖，再压会二次劣化）
@@ -85,6 +89,7 @@ final class AppStore {
         }
         generateWebP = defaults.bool(forKey: "generateWebP")
         autoConvert = defaults.bool(forKey: "autoConvert")
+        convertToPNG = defaults.bool(forKey: "convertToPNG")
         replaceOriginal = defaults.bool(forKey: "replaceOriginal")
         resizeEnabled = defaults.bool(forKey: "resizeEnabled")
         resizeWidth = defaults.integer(forKey: "resizeWidth")
@@ -137,6 +142,7 @@ final class AppStore {
             && a.outputMode == b.outputMode
             && a.resize == b.resize
             && a.autoConvert == b.autoConvert
+            && a.convertToPNG == b.convertToPNG
     }
 
     var doneCount: Int {
@@ -164,6 +170,7 @@ final class AppStore {
                 )
                 : nil,
             autoConvert: autoConvert,
+            convertToPNG: convertToPNG,
             anim: AnimSettings(
                 output: animOutput,
                 frameKeep: animFrameKeep,

@@ -12,7 +12,7 @@ struct DropZoneView: View {
             Text(isTargeted ? "松手开始压缩" : "拖入图片或文件夹")
                 .font(.title3)
                 .foregroundStyle(isTargeted ? Color.accentColor : .primary)
-            Text("静图 PNG · JPG　动图 GIF · APNG · WebP")
+            Text("支持 PNG · JPG · WebP · GIF · APNG")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             Button("选择图片…") {

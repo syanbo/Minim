@@ -5,8 +5,9 @@ func printUsage() {
     print("""
     用法: minim-cli <图片文件...> [选项]
       -q <10|30|50|80|auto|lossless>   质量档位（默认 auto）
-      --webp                           同时生成 WebP
-      --convert                        自动转换格式（PNG↔JPG，更小才保留为额外文件）
+      --webp                           额外生成一份 WebP（GIF / WebP 输入除外）
+      --jpg                            额外生成一份 JPG（PNG / 静态 WebP 输入，透明填白底）
+      --png                            额外生成一份无损 PNG（JPG / 静态 WebP 输入）
       -o <目录>                        输出到指定目录（默认输出到源目录下的 minim 文件夹）
       --overwrite                      覆盖源文件
       --resize <宽x高>                 等比缩放到框内（0 表示该维度按原图，不放大）
@@ -53,8 +54,10 @@ while !args.isEmpty {
         }
     case "--webp":
         settings.generateWebP = true
-    case "--convert":
+    case "--jpg", "--convert":   // --convert 是旧名，保留兼容
         settings.autoConvert = true
+    case "--png":
+        settings.convertToPNG = true
     case "--anim":
         guard let format = AnimOutputFormat(rawValue: nextValue(arg)), format != .gif else {
             print("动图输出格式应为 webp 或 apng"); exit(1)
@@ -128,8 +131,8 @@ Task {
             if let webpSize = result.webpSize {
                 line += "  webp: \(ByteFormatter.string(webpSize))"
             }
-            if let convertedURL = result.convertedURL, let convertedSize = result.convertedSize {
-                line += "  \(convertedURL.pathExtension.uppercased()): \(ByteFormatter.string(convertedSize))"
+            for candidate in result.converted {
+                line += "  \(candidate.label): \(ByteFormatter.string(candidate.size))"
             }
             print(line)
         } catch {

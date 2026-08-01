@@ -14,7 +14,8 @@ jobs:
   test:
     name: 构建与测试
     # macos-14 起才是 arm64 runner；本项目只支持 Apple Silicon
-    runs-on: macos-14
+    # 需要 Swift 6（count(where:) 等 API），macos-14 自带的 Xcode 太旧
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -31,7 +32,8 @@ jobs:
 
   bundle:
     name: 组装 .app
-    runs-on: macos-14
+    # 需要 Swift 6（count(where:) 等 API），macos-14 自带的 Xcode 太旧
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 

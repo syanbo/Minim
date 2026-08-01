@@ -1,4 +1,8 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.0
+// 需要 Swift 6 工具链——代码用到了 count(where:) 等 6.0 才有的标准库 API。
+// 但语言模式仍保持 v5（见文件末尾 swiftLanguageModes）：
+// 切到 v6 会开启严格并发检查，需要先把 AnimatedImage.Animation 等类型改成 Sendable，
+// 那是一次独立的重构，不该混在构建配置里做
 import PackageDescription
 
 let package = Package(
@@ -30,5 +34,6 @@ let package = Package(
             name: "MinimCoreTests",
             dependencies: ["MinimCore"]
         ),
-    ]
+    ],
+    swiftLanguageModes: [.v5]
 )

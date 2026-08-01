@@ -19,7 +19,7 @@ public enum PNGInspector {
               let data = try? handle.read(upToCount: 33)
         else { return nil }
         try? handle.close()
-        return inspect(data ?? Data())
+        return inspect(data)
     }
 
     public static func inspect(_ data: Data) -> Info? {

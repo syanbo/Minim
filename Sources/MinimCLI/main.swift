@@ -101,7 +101,17 @@ while !args.isEmpty {
         detectOnly = true
     case "-h", "--help":
         printUsage(); exit(0)
+    case "--convert":
+        print("--convert 已更名为 --jpg")
+        exit(1)
     default:
+        // 拼错的选项不能被当成图片路径静默吞掉——那会变成
+        // 「不支持的图片格式」并让整条流水线以非零码退出，指不到真正的原因
+        guard !arg.hasPrefix("-") else {
+            print("未知选项: \(arg)")
+            printUsage()
+            exit(1)
+        }
         files.append(URL(fileURLWithPath: arg))
     }
 }

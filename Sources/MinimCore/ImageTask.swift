@@ -15,7 +15,7 @@ public enum ImageFormat: String, Sendable, CaseIterable {
     public static func detect(from url: URL) -> ImageFormat? {
         // 先按魔数判断，扩展名兜底
         if let handle = try? FileHandle(forReadingFrom: url),
-           let head = try? handle.read(upToCount: 12) {
+           let head = try? handle.read(upToCount: 30) {
             try? handle.close()
             if head.starts(with: [0x89, 0x50, 0x4E, 0x47]) {
                 return AnimatedImage.isAnimated(url) ? .apng : .png
@@ -25,6 +25,10 @@ public enum ImageFormat: String, Sendable, CaseIterable {
             if head.count >= 12,
                head.starts(with: [0x52, 0x49, 0x46, 0x46]),          // RIFF
                Array(head[8..<12]) == [0x57, 0x45, 0x42, 0x50] {     // WEBP
+                // 容器自己声明的动画标志优先于 ImageIO 的帧数：
+                // CGImageSourceGetCount 对部分动图 WebP 会返回 1，
+                // 误判成静态会把动画压成单帧且不可恢复
+                if webpDeclaresAnimation(head) { return .webpAnimated }
                 return AnimatedImage.isAnimated(url) ? .webpAnimated : .webp
             }
         }
@@ -35,6 +39,16 @@ public enum ImageFormat: String, Sendable, CaseIterable {
         case "gif": return .gif
         default: return nil
         }
+    }
+
+    /// 扩展格式（VP8X）的 flags 字节 bit1 = ANIM。
+    /// 布局：RIFF(4) size(4) WEBP(4) "VP8X"(4) chunkSize(4) flags(1)…
+    static func webpDeclaresAnimation(_ head: Data) -> Bool {
+        let bytes = [UInt8](head)
+        guard bytes.count >= 21,
+              Array(bytes[12..<16]) == [0x56, 0x50, 0x38, 0x58]  // "VP8X"
+        else { return false }
+        return bytes[20] & 0x02 != 0
     }
 
     /// UI 展示名

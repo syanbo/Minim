@@ -98,11 +98,11 @@ final class AppStore {
         if let saved = defaults.array(forKey: "conversions") as? [String] {
             conversions = Set(saved.compactMap(ConversionTarget.init(rawValue:)))
         } else {
-            // 从早期版本的三个独立开关迁移，保住用户已有设置
+            // 从已发布版本的两个独立开关迁移，保住用户已有设置。
+            // 没有 convertToPNG——那个 key 只在未发布的提交区间里存在过
             var migrated: Set<ConversionTarget> = []
             if defaults.bool(forKey: "generateWebP") { migrated.insert(.webp) }
             if defaults.bool(forKey: "autoConvert") { migrated.insert(.jpeg) }
-            if defaults.bool(forKey: "convertToPNG") { migrated.insert(.png) }
             conversions = migrated
         }
         replaceOriginal = defaults.bool(forKey: "replaceOriginal")

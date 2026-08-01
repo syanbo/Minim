@@ -7,14 +7,16 @@ struct ComparePanel: View {
     @Environment(AppStore.self) private var store
     let task: ImageTask
 
+    /// id 用标签而非位置序号：候选集合会随开关增减，
+    /// 位置编号会让用户当前选中的那一项在重新生成后莫名跳回主输出
     private struct Variant: Identifiable, Hashable {
-        let id: Int
+        var id: String { label }
         let label: String
         let url: URL
         let size: Int64
     }
 
-    @State private var selectedVariant = 0
+    @State private var selectedVariant = ""
     @State private var originalImage: NSImage?
     @State private var outputImage: NSImage?
     /// 像素尺寸随图一起在后台读一次；放计算属性里会让每次 body 求值都做磁盘 I/O
@@ -30,17 +32,13 @@ struct ComparePanel: View {
     private var variants: [Variant] {
         guard let result else { return [] }
         var list = [Variant(
-            id: 0,
             label: result.outputURL.pathExtension.uppercased(),
             url: result.outputURL,
             size: result.outputSize
         )]
         // 额外输出（WebP / JPG / PNG）地位相同，顺序跟随 result.converted
-        for (offset, candidate) in result.converted.enumerated() {
-            list.append(Variant(
-                id: 1 + offset, label: candidate.label,
-                url: candidate.url, size: candidate.size
-            ))
+        list += result.converted.map {
+            Variant(label: $0.label, url: $0.url, size: $0.size)
         }
         return list
     }

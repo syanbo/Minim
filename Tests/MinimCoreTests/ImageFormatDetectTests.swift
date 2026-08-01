@@ -94,6 +94,28 @@ final class ImageFormatDetectTests: XCTestCase {
         XCTAssertNil(ImageFormat.detect(from: fake))
     }
 
+    /// 容器声明了 ANIM 标志时必须判为动图，不能因为 ImageIO 报单帧就走静态路径
+    /// （静态路径只取第 0 帧，覆盖模式下会不可恢复地毁掉动画）
+    func testVP8XAnimationFlagWins() throws {
+        var bytes: [UInt8] = Array("RIFF".utf8) + [0, 0, 0, 0]
+            + Array("WEBP".utf8) + Array("VP8X".utf8) + [10, 0, 0, 0]
+        bytes.append(0x02)                       // flags: ANIM
+        bytes.append(contentsOf: [UInt8](repeating: 0, count: 9))
+        XCTAssertTrue(ImageFormat.webpDeclaresAnimation(Data(bytes)))
+
+        bytes[20] = 0x10                         // 只有 ALPHA，没有 ANIM
+        XCTAssertFalse(ImageFormat.webpDeclaresAnimation(Data(bytes)))
+    }
+
+    /// 简单格式（无 VP8X 块）不该被误判成动图
+    func testPlainWebPHasNoAnimationFlag() throws {
+        let webp = temp("webp")
+        try WebPEncoder.encode(source: try writePNG(), to: webp, preset: .p80)
+        let head = try Data(contentsOf: webp).prefix(30)
+        XCTAssertFalse(ImageFormat.webpDeclaresAnimation(head))
+        XCTAssertEqual(ImageFormat.detect(from: webp), .webp)
+    }
+
     func testOtherFormatsUnaffected() throws {
         XCTAssertEqual(ImageFormat.detect(from: try writePNG()), .png)
         XCTAssertEqual(ImageFormat.detect(from: try writeAnimatedGIF()), .gif)

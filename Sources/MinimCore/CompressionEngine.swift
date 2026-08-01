@@ -87,10 +87,13 @@ public enum CompressionEngine {
 
         // 转换开关：额外输出候选文件，不替换主输出。
         // 三种目标走同一条路径，适用性判断收在 ConversionTarget 里
+        // 候选失败会向外抛出：开关打开却静默不产出，用户会以为文件已生成。
+        // 取消也必须传出去，否则任务会翻回「已完成」
         var converted: [ConvertedOutput] = []
         for target in ConversionTarget.allCases
         where settings.conversions.contains(target) && target.applies(to: format) {
-            if let candidate = try? await candidate(
+            try Task.checkCancellation()
+            if let candidate = try await candidate(
                 target, source: source, outputURL: outputURL, settings: settings
             ) {
                 converted.append(candidate)
@@ -260,8 +263,9 @@ public enum CompressionEngine {
             try ImageResizer.writePNG(image, to: raw)
         }
         guard raw.fileSizeBytes > 0 else { return nil }
-        // 压缩失败不致命，退回未优化的 PNG
-        try? await PNGCompressor.compress(source: raw, to: optimized, preset: settings.quality)
+        // 固定用 .lossless：该档只跑 oxipng 无损优化、不做 pngquant 量化。
+        // 工具条 help 与 README 都承诺「无损、保留透明」，不能跟着全局质量档变成有损
+        try await PNGCompressor.compress(source: raw, to: optimized, preset: .lossless)
         let produced = optimized.fileSizeBytes > 0 ? optimized : raw
 
         return try publishCandidate(

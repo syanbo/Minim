@@ -53,11 +53,11 @@ while !args.isEmpty {
             print("未知质量档位: \(value)"); exit(1)
         }
     case "--webp":
-        settings.generateWebP = true
+        settings.conversions.insert(.webp)
     case "--jpg":
-        settings.autoConvert = true
+        settings.conversions.insert(.jpeg)
     case "--png":
-        settings.convertToPNG = true
+        settings.conversions.insert(.png)
     case "--anim":
         guard let format = AnimOutputFormat(rawValue: nextValue(arg)), format != .gif else {
             print("动图输出格式应为 webp 或 apng"); exit(1)
@@ -128,9 +128,6 @@ Task {
             var line = "\(url.lastPathComponent): \(ByteFormatter.string(result.originalSize)) → " +
                 "\(ByteFormatter.string(result.outputSize)) (\(ByteFormatter.ratioString(result.savedRatio)))"
             if result.keptOriginal { line += " [已最优，保留原图]" }
-            if let webpSize = result.webpSize {
-                line += "  webp: \(ByteFormatter.string(webpSize))"
-            }
             for candidate in result.converted {
                 line += "  \(candidate.label): \(ByteFormatter.string(candidate.size))"
             }

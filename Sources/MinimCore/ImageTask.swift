@@ -69,28 +69,29 @@ public enum ImageFormat: String, Sendable, CaseIterable {
 }
 
 /// 转换开关产生的额外输出（如 basename-jpg.jpg），不替换主输出
-public struct ConvertedOutput: Sendable {
+public struct ConvertedOutput: Sendable, Hashable, Identifiable {
+    public let target: ConversionTarget
     public let url: URL
     public let size: Int64
 
-    public init(url: URL, size: Int64) {
+    public init(target: ConversionTarget, url: URL, size: Int64) {
+        self.target = target
         self.url = url
         self.size = size
     }
 
-    /// 展示用标签，直接取扩展名（JPG / PNG）
-    public var label: String { url.pathExtension.uppercased() }
+    public var id: URL { url }
+    /// 展示用标签，直接来自目标类型（不从文件名反推）
+    public var label: String { target.label }
 }
 
 public struct CompressionResult: Sendable {
     public let outputURL: URL
     public let originalSize: Int64
     public let outputSize: Int64
-    public let webpURL: URL?
-    public let webpSize: Int64?
     /// 压缩后不比原图小，输出的是原文件的拷贝
     public let keptOriginal: Bool
-    /// 转换开关产生的额外文件，可同时有多个（如 WebP 输入同时转 PNG 和 JPG）
+    /// 转换开关产生的额外文件，可同时有多个（WebP / JPG / PNG 三者地位相同）
     public let converted: [ConvertedOutput]
 
     /// 压缩率（节省比例，0-1）
@@ -101,14 +102,11 @@ public struct CompressionResult: Sendable {
 
     public init(
         outputURL: URL, originalSize: Int64, outputSize: Int64,
-        webpURL: URL? = nil, webpSize: Int64? = nil, keptOriginal: Bool = false,
-        converted: [ConvertedOutput] = []
+        keptOriginal: Bool = false, converted: [ConvertedOutput] = []
     ) {
         self.outputURL = outputURL
         self.originalSize = originalSize
         self.outputSize = outputSize
-        self.webpURL = webpURL
-        self.webpSize = webpSize
         self.keptOriginal = keptOriginal
         self.converted = converted
     }

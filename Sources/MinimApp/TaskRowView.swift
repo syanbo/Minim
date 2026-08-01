@@ -287,11 +287,7 @@ struct TaskRowView: View {
                     != task.sourceURL.pathExtension.lowercased() {
                     badge(result.outputURL.pathExtension.uppercased(), Color.accentColor)
                 }
-                if let webpSize = result.webpSize {
-                    Text("· WebP \(ByteFormatter.string(webpSize))")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(result.converted, id: \.url) { candidate in
+                ForEach(result.converted) { candidate in
                     Text("· \(candidate.label) \(ByteFormatter.string(candidate.size))")
                         .foregroundStyle(.purple)
                 }

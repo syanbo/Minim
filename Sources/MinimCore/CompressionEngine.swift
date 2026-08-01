@@ -85,48 +85,22 @@ public enum CompressionEngine {
             keptOriginal: keptOriginal, originalSize: originalSize, producedSize: compressedSize
         )
 
-        // 三个转换开关共用一条规则：输入是静态图，且目标格式不等于输入格式。
-        // （WebP 输入若再出 WebP，同名同目录会把主输出覆盖掉）
-        func wants(_ enabled: Bool, _ targetExtension: String) -> Bool {
-            enabled && !format.isAnimated && format.preferredExtension != targetExtension
-        }
-
-        // WebP：从源图生成，保证质量基准与主输出一致
-        var webpURL: URL?
-        var webpSize: Int64?
-        if wants(settings.generateWebP, "webp") {
-            let target = webpDestinationURL(for: source, outputURL: outputURL)
-            try? fm.createDirectory(
-                at: target.deletingLastPathComponent(), withIntermediateDirectories: true
-            )
-            try WebPEncoder.encode(
-                source: source, to: target, preset: settings.quality, resize: settings.resize
-            )
-            webpURL = target
-            webpSize = target.fileSizeBytes
-        }
-
-        // 转换开关：额外输出候选文件，不替换主输出
+        // 转换开关：额外输出候选文件，不替换主输出。
+        // 三种目标走同一条路径，适用性判断收在 ConversionTarget 里
         var converted: [ConvertedOutput] = []
-        if wants(settings.autoConvert, "jpg"),
-           let candidate = try? jpegCandidate(
-               source: source, outputURL: outputURL, settings: settings
-           ) {
-            converted.append(candidate)
-        }
-        if wants(settings.convertToPNG, "png"),
-           let candidate = try? await pngCandidate(
-               source: source, outputURL: outputURL, settings: settings
-           ) {
-            converted.append(candidate)
+        for target in ConversionTarget.allCases
+        where settings.conversions.contains(target) && target.applies(to: format) {
+            if let candidate = try? await candidate(
+                target, source: source, outputURL: outputURL, settings: settings
+            ) {
+                converted.append(candidate)
+            }
         }
 
         return CompressionResult(
             outputURL: outputURL,
             originalSize: originalSize,
             outputSize: outputSize,
-            webpURL: webpURL,
-            webpSize: webpSize,
             keptOriginal: keptOriginal,
             converted: converted
         )
@@ -209,6 +183,34 @@ public enum CompressionEngine {
         )
     }
 
+    /// 按目标格式分发到具体编码器。调用方已保证 `target.applies(to:)` 成立
+    private static func candidate(
+        _ target: ConversionTarget, source: URL, outputURL: URL, settings: CompressionSettings
+    ) async throws -> ConvertedOutput? {
+        switch target {
+        case .webp: try webpCandidate(source: source, outputURL: outputURL, settings: settings)
+        case .jpeg: try jpegCandidate(source: source, outputURL: outputURL, settings: settings)
+        case .png: try await pngCandidate(source: source, outputURL: outputURL, settings: settings)
+        }
+    }
+
+    /// WebP 候选。从源图而非主输出生成，保证质量基准与主输出一致
+    private static func webpCandidate(
+        source: URL, outputURL: URL, settings: CompressionSettings
+    ) throws -> ConvertedOutput? {
+        let fm = FileManager.default
+        let temp = tempDir()
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("webp")
+        defer { try? fm.removeItem(at: temp) }
+
+        try WebPEncoder.encode(
+            source: source, to: temp, preset: settings.quality, resize: settings.resize
+        )
+        guard temp.fileSizeBytes > 0 else { return nil }
+        return try publishCandidate(temp, target: .webp, source: source, outputURL: outputURL)
+    }
+
     /// 转 JPG 候选（额外文件，不替换主输出）。适用于 PNG 与静态 WebP
     private static func jpegCandidate(
         source: URL, outputURL: URL, settings: CompressionSettings
@@ -232,7 +234,7 @@ public enum CompressionEngine {
         guard candidateJPEG.fileSizeBytes > 0 else { return nil }
 
         return try publishCandidate(
-            candidateJPEG, source: source, outputURL: outputURL, suffix: "-jpg", ext: "jpg"
+            candidateJPEG, target: .jpeg, source: source, outputURL: outputURL
         )
     }
 
@@ -263,23 +265,23 @@ public enum CompressionEngine {
         let produced = optimized.fileSizeBytes > 0 ? optimized : raw
 
         return try publishCandidate(
-            produced, source: source, outputURL: outputURL, suffix: "-png", ext: "png"
+            produced, target: .png, source: source, outputURL: outputURL
         )
     }
 
-    /// 候选文件落盘：与主输出同目录，命名 `<原名><suffix>.<ext>`
+    /// 候选文件落盘：与主输出同目录，命名规则由 ConversionTarget 提供
     private static func publishCandidate(
-        _ temp: URL, source: URL, outputURL: URL, suffix: String, ext: String
+        _ temp: URL, target: ConversionTarget, source: URL, outputURL: URL
     ) throws -> ConvertedOutput {
         let fm = FileManager.default
         let baseName = source.deletingPathExtension().lastPathComponent
         // 输出目录由主输出的 publish 建好，这里不必重复创建
-        let target = outputURL.deletingLastPathComponent()
-            .appendingPathComponent("\(baseName)\(suffix).\(ext)")
-        try? fm.removeItem(at: target)
+        let destination = outputURL.deletingLastPathComponent()
+            .appendingPathComponent("\(baseName)\(target.nameSuffix).\(target.fileExtension)")
+        try? fm.removeItem(at: destination)
         // move 而非 copy：temp 是本次刚生成的临时文件，同卷下退化为 rename
-        try fm.moveItem(at: temp, to: target)
-        return ConvertedOutput(url: target, size: target.fileSizeBytes)
+        try fm.moveItem(at: temp, to: destination)
+        return ConvertedOutput(target: target, url: destination, size: destination.fileSizeBytes)
     }
 
     private static func tempDir() -> URL {
@@ -322,9 +324,4 @@ public enum CompressionEngine {
         }
     }
 
-    /// WebP 输出位置：与主输出同目录、同名换扩展
-    static func webpDestinationURL(for source: URL, outputURL: URL) -> URL {
-        let name = source.deletingPathExtension().lastPathComponent + ".webp"
-        return outputURL.deletingLastPathComponent().appendingPathComponent(name)
-    }
 }

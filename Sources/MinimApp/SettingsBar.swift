@@ -24,11 +24,9 @@ struct SettingsBar: View {
 
     /// 三个「额外输出一份 X」开关共用的外观。
     /// 每处 fixedSize 都不能省：窗口变窄时会被挤压，中文标签甚至会压成竖排
-    private func formatToggle(
-        _ label: String, isOn: Binding<Bool>, help: String
-    ) -> some View {
-        Toggle(isOn: isOn) {
-            Text(label)
+    private func formatToggle(_ target: ConversionTarget, help: String) -> some View {
+        Toggle(isOn: store.conversionBinding(target)) {
+            Text(target.label)
                 .fixedSize()
         }
         .toggleStyle(.switch)
@@ -58,15 +56,15 @@ struct SettingsBar: View {
 
 
             formatToggle(
-                "WebP", isOn: $store.generateWebP,
-                help: "PNG / JPG 额外输出一份同名 .webp，不替换主输出（GIF 与 WebP 输入不适用）"
+                .webp,
+                help: "PNG / JPG 额外输出一份同名 .webp，不替换主输出（动图与 WebP 输入不适用）"
             )
             formatToggle(
-                "JPG", isOn: $store.autoConvert,
+                .jpeg,
                 help: "PNG / 静态 WebP 额外输出一张 JPG（名字-jpg.jpg，透明部分填白底），不替换主输出"
             )
             formatToggle(
-                "PNG", isOn: $store.convertToPNG,
+                .png,
                 help: "JPG / 静态 WebP 额外输出一张无损 PNG（名字-png.png），不替换主输出"
             )
 

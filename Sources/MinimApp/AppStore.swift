@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import MinimCore
 
 @MainActor
@@ -9,16 +10,9 @@ final class AppStore {
     var quality: QualityPreset = .auto {
         didSet { defaults.set(quality.rawValue, forKey: "quality") }
     }
-    var generateWebP = false {
-        didSet { defaults.set(generateWebP, forKey: "generateWebP") }
-    }
-    /// 转 JPG：PNG / 静态 WebP 额外输出一张 JPG
-    var autoConvert = false {
-        didSet { defaults.set(autoConvert, forKey: "autoConvert") }
-    }
-    /// 转 PNG：JPG / 静态 WebP 额外输出一张无损 PNG
-    var convertToPNG = false {
-        didSet { defaults.set(convertToPNG, forKey: "convertToPNG") }
+    /// 要额外输出哪些格式。三个开关地位相同，加一种格式不需要动这里
+    var conversions: Set<ConversionTarget> = [] {
+        didSet { defaults.set(conversions.map(\.rawValue), forKey: "conversions") }
     }
     /// 替换原图模式：只对之后添加的图片生效，不回溯已完成任务
     /// （否则源文件已被覆盖，再压会二次劣化）
@@ -63,6 +57,20 @@ final class AppStore {
         didSet { defaults.set(animLoopCount, forKey: "animLoopCount") }
     }
 
+    /// 把 Set 桥接成单个开关的 Binding，供工具条的 Toggle 使用
+    func conversionBinding(_ target: ConversionTarget) -> Binding<Bool> {
+        Binding(
+            get: { self.conversions.contains(target) },
+            set: { isOn in
+                if isOn {
+                    self.conversions.insert(target)
+                } else {
+                    self.conversions.remove(target)
+                }
+            }
+        )
+    }
+
     var presentFileImporter = false
     /// 当前在对比弹框中查看的任务
     var compareTask: ImageTask?
@@ -87,9 +95,16 @@ final class AppStore {
            let saved = QualityPreset(rawValue: raw) {
             quality = saved
         }
-        generateWebP = defaults.bool(forKey: "generateWebP")
-        autoConvert = defaults.bool(forKey: "autoConvert")
-        convertToPNG = defaults.bool(forKey: "convertToPNG")
+        if let saved = defaults.array(forKey: "conversions") as? [String] {
+            conversions = Set(saved.compactMap(ConversionTarget.init(rawValue:)))
+        } else {
+            // 从早期版本的三个独立开关迁移，保住用户已有设置
+            var migrated: Set<ConversionTarget> = []
+            if defaults.bool(forKey: "generateWebP") { migrated.insert(.webp) }
+            if defaults.bool(forKey: "autoConvert") { migrated.insert(.jpeg) }
+            if defaults.bool(forKey: "convertToPNG") { migrated.insert(.png) }
+            conversions = migrated
+        }
         replaceOriginal = defaults.bool(forKey: "replaceOriginal")
         resizeEnabled = defaults.bool(forKey: "resizeEnabled")
         resizeWidth = defaults.integer(forKey: "resizeWidth")
@@ -158,7 +173,6 @@ final class AppStore {
     var settings: CompressionSettings {
         CompressionSettings(
             quality: quality,
-            generateWebP: generateWebP,
             outputMode: replaceOriginal
                 ? .overwrite
                 : .fixedSubdir(OutputMode.defaultSubdirName),
@@ -168,8 +182,7 @@ final class AppStore {
                     keepAspectRatio: resizeKeepRatio
                 )
                 : nil,
-            autoConvert: autoConvert,
-            convertToPNG: convertToPNG,
+            conversions: conversions,
             anim: AnimSettings(
                 output: animOutput,
                 frameKeep: animFrameKeep,

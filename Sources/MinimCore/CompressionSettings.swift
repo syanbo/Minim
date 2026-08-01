@@ -70,6 +70,47 @@ public enum QualityPreset: String, CaseIterable, Codable, Sendable, Identifiable
     }
 }
 
+/// 转换目标。三者语义完全一致：**额外输出一份该格式，不替换主输出**。
+/// 新增一种格式只需在这里加一个 case，适用性和命名规则都跟着走
+public enum ConversionTarget: String, Sendable, CaseIterable, Codable, Hashable {
+    case webp
+    case jpeg
+    case png
+
+    public var fileExtension: String {
+        switch self {
+        case .webp: "webp"
+        case .jpeg: "jpg"
+        case .png: "png"
+        }
+    }
+
+    /// 文件名后缀。WebP 与主输出同名换扩展（既有行为，README 有承诺，不要改），
+    /// JPG / PNG 加后缀以免与主输出重名
+    public var nameSuffix: String {
+        switch self {
+        case .webp: ""
+        case .jpeg: "-jpg"
+        case .png: "-png"
+        }
+    }
+
+    /// UI 与 CLI 共用的展示名
+    public var label: String {
+        switch self {
+        case .webp: "WebP"
+        case .jpeg: "JPG"
+        case .png: "PNG"
+        }
+    }
+
+    /// 唯一的适用性规则：输入是静态图，且目标格式不等于输入自身格式。
+    /// 后者是必须的——同格式再输出一份会与主输出同名，把主输出覆盖掉
+    public func applies(to format: ImageFormat) -> Bool {
+        !format.isAnimated && format.preferredExtension != fileExtension
+    }
+}
+
 /// 裁剪缩放设置（复刻原版：宽高超过原图时取原图尺寸，不放大）
 public struct ResizeSpec: Sendable, Equatable {
     /// 目标宽度，0 表示未设置（取原图宽）
@@ -216,31 +257,25 @@ public enum OutputMode: Sendable, Equatable {
 
 public struct CompressionSettings: Sendable, Equatable {
     public var quality: QualityPreset
-    public var generateWebP: Bool
     public var outputMode: OutputMode
     public var resize: ResizeSpec?
-    /// 转 JPG：PNG / 静态 WebP 额外输出一份 JPG（透明填白底），不替换主输出
-    public var autoConvert: Bool
-    /// 转 PNG：JPG / 静态 WebP 额外输出一份无损 PNG，不替换主输出
-    public var convertToPNG: Bool
+    /// 要额外输出哪些格式（不替换主输出）。实际是否产出还要过
+    /// `ConversionTarget.applies(to:)`——动图和同格式不适用
+    public var conversions: Set<ConversionTarget>
     /// 动图转换设置
     public var anim: AnimSettings
 
     public init(
         quality: QualityPreset = .auto,
-        generateWebP: Bool = false,
         outputMode: OutputMode = .fixedSubdir(OutputMode.defaultSubdirName),
         resize: ResizeSpec? = nil,
-        autoConvert: Bool = false,
-        convertToPNG: Bool = false,
+        conversions: Set<ConversionTarget> = [],
         anim: AnimSettings = AnimSettings()
     ) {
         self.quality = quality
-        self.generateWebP = generateWebP
         self.outputMode = outputMode
         self.resize = resize
-        self.autoConvert = autoConvert
-        self.convertToPNG = convertToPNG
+        self.conversions = conversions
         self.anim = anim
     }
 }

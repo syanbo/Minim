@@ -20,7 +20,11 @@ public enum WebPEncoder {
         if let resize, let resized = ImageResizer.apply(resize, to: image) {
             image = resized
         }
+        try encode(image: image, to: destination, preset: preset)
+    }
 
+    /// 编码已解码的单帧图像（动图导出单帧走这条，不需要再读一次文件）
+    public static func encode(image: CGImage, to destination: URL, preset: QualityPreset) throws {
         let pixels = CGImagePixels.straightRGBA(of: image)
         let width = Int32(image.width)
         let height = Int32(image.height)

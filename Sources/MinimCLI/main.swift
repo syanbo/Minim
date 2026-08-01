@@ -130,16 +130,23 @@ if detectOnly {
 }
 
 let semaphore = DispatchSemaphore(value: 0)
+// 本次参数里的所有输入都不能被候选产物覆盖（如 a.png 的 WebP 候选撞上 a.webp）
+let protectedPaths = Set(files)
 Task {
     var failures = 0
     for url in files {
         do {
-            let result = try await CompressionEngine.compress(source: url, settings: settings)
+            let result = try await CompressionEngine.compress(
+                source: url, settings: settings, protectedPaths: protectedPaths
+            )
             var line = "\(url.lastPathComponent): \(ByteFormatter.string(result.originalSize)) → " +
                 "\(ByteFormatter.string(result.outputSize)) (\(ByteFormatter.ratioString(result.savedRatio)))"
             if result.keptOriginal { line += " [已最优，保留原图]" }
             for candidate in result.converted {
                 line += "  \(candidate.label): \(ByteFormatter.string(candidate.size))"
+            }
+            for target in result.skipped {
+                line += "  \(target.label): 已跳过（会覆盖同名文件）"
             }
             print(line)
         } catch {

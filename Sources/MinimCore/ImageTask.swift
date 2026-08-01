@@ -107,6 +107,9 @@ public struct CompressionResult: Sendable {
     public let keptOriginal: Bool
     /// 转换开关产生的额外文件，可同时有多个（WebP / JPG / PNG 三者地位相同）
     public let converted: [ConvertedOutput]
+    /// 开关已打开、但目标路径会覆盖用户自己的文件而被跳过的目标。
+    /// 不能静默跳过——用户会以为文件已生成
+    public let skipped: [ConversionTarget]
 
     /// 压缩率（节省比例，0-1）
     public var savedRatio: Double {
@@ -116,13 +119,15 @@ public struct CompressionResult: Sendable {
 
     public init(
         outputURL: URL, originalSize: Int64, outputSize: Int64,
-        keptOriginal: Bool = false, converted: [ConvertedOutput] = []
+        keptOriginal: Bool = false, converted: [ConvertedOutput] = [],
+        skipped: [ConversionTarget] = []
     ) {
         self.outputURL = outputURL
         self.originalSize = originalSize
         self.outputSize = outputSize
         self.keptOriginal = keptOriginal
         self.converted = converted
+        self.skipped = skipped
     }
 }
 

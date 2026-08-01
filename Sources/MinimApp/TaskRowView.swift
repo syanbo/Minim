@@ -291,6 +291,12 @@ struct TaskRowView: View {
                     Text("· \(candidate.label) \(ByteFormatter.string(candidate.size))")
                         .foregroundStyle(.purple)
                 }
+                // 开关开着却没产出必须说明原因，否则用户以为文件已生成
+                ForEach(result.skipped, id: \.self) { target in
+                    Text("· \(target.label) 已跳过")
+                        .foregroundStyle(.orange)
+                        .help("目标文件名 \(target.label) 会覆盖列表中已有的同名图片，已跳过以免误删")
+                }
             }
             .font(.caption)
             .foregroundStyle(.secondary)

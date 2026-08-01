@@ -58,6 +58,33 @@ final class ConversionTargetTests: XCTestCase {
         XCTAssertEqual(ConversionTarget.png.fileExtension, ImageFormat.png.preferredExtension)
     }
 
+    /// WebP 候选与静态 WebP 输入共用 `<原名>.webp`——这正是覆盖用户源文件的根因，
+    /// 冲突预判必须与实际落盘用同一个路径函数
+    func testWebPCandidateCollidesWithWebPInputPath() {
+        let source = URL(fileURLWithPath: "/tmp/pics/logo.png")
+        let output = URL(fileURLWithPath: "/tmp/pics/minim/logo.png")
+        let webpTarget = CompressionEngine.candidateURL(.webp, source: source, outputURL: output)
+
+        XCTAssertEqual(webpTarget.lastPathComponent, "logo.webp")
+        XCTAssertEqual(webpTarget.deletingLastPathComponent(), output.deletingLastPathComponent())
+        // JPG / PNG 带后缀，不会与任何同名输入撞车
+        XCTAssertEqual(
+            CompressionEngine.candidateURL(.jpeg, source: source, outputURL: output)
+                .lastPathComponent, "logo-jpg.jpg"
+        )
+        XCTAssertEqual(
+            CompressionEngine.candidateURL(.png, source: source, outputURL: output)
+                .lastPathComponent, "logo-png.png"
+        )
+    }
+
+    /// 覆盖模式下 WebP 候选的目标就是源文件所在目录，必须靠 protectedPaths 兜住
+    func testOverwriteModeWebPCandidateLandsNextToSource() {
+        let source = URL(fileURLWithPath: "/tmp/pics/logo.png")
+        let target = CompressionEngine.candidateURL(.webp, source: source, outputURL: source)
+        XCTAssertEqual(target, URL(fileURLWithPath: "/tmp/pics/logo.webp"))
+    }
+
     func testRawValuesAreStableForPersistence() {
         // UserDefaults 里存的是 rawValue，改动会让用户设置丢失
         XCTAssertEqual(ConversionTarget.webp.rawValue, "webp")

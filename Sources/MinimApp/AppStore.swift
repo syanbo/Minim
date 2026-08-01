@@ -303,6 +303,9 @@ final class AppStore {
         }
         tasks[index].lastRunSettings = settings
         let source = task.sourceURL
+        // 列表里所有源文件都不能被候选产物覆盖：静态 WebP 输入与
+        // WebP 候选共用 `<原名>.webp`，不防就会删掉用户自己拖进来的图
+        let protectedPaths = Set(tasks.map(\.sourceURL))
         running[taskID] = Task {
             await CompressionQueue.shared.acquire()
             defer { Task { await CompressionQueue.shared.release() } }
@@ -311,6 +314,7 @@ final class AppStore {
             do {
                 let result = try await CompressionEngine.compress(
                     source: source, settings: settings,
+                    protectedPaths: protectedPaths,
                     onStage: { [weak self] stage in
                         Task { @MainActor in self?.stages[taskID] = stage }
                     }

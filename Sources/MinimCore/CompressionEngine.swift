@@ -5,10 +5,18 @@ public enum CompressionEngine {
     /// 处理阶段回调（用于界面显示进度文案）
     public typealias StageReporter = @Sendable (String) -> Void
 
+    /// 静态 WebP 有损重编码至少要省下这个比例才值得替换原图
+    static let minimumWebPGain = 0.10
+
     /// 压缩单张图片（含可选 WebP 生成），全程先写临时文件，
     /// 若压缩结果不比原图小则回退为原文件拷贝
+    /// - Parameter protectedPaths: 绝不能被候选产物覆盖的路径（通常是本批次全部源文件）。
+    ///   WebP 候选与静态 WebP 输入共用 `<原名>.webp`，不防就会删掉用户自己的图。
+    ///   **刻意不放进 `CompressionSettings`**：它参与设置比对，任务列表一变
+    ///   就会让所有已完成任务误报「设置已变更，需重新生成」
     public static func compress(
-        source: URL, settings: CompressionSettings, onStage: StageReporter? = nil
+        source: URL, settings: CompressionSettings,
+        protectedPaths: Set<URL> = [], onStage: StageReporter? = nil
     ) async throws -> CompressionResult {
         guard let format = ImageFormat.detect(from: source) else {
             throw ExternalToolError(tool: "engine", message: "不支持的图片格式")
@@ -76,8 +84,14 @@ public enum CompressionEngine {
         let transformed = settings.resize?.shrinks(fileAt: source) ?? false
             || (format == .gif
                 && (settings.anim.transformsTimeline || settings.anim.loopOverride != nil))
+        // 静态 WebP 没有 JPEG 那样的原图质量估算，有损重编码必然是「又一次有损」。
+        // 省得不明显就保留原图，否则同一批图反复拖入会持续代际劣化
+        let risksGenerationalLoss = format == .webp && settings.quality != .lossless
+        let keepThreshold = risksGenerationalLoss
+            ? Int64(Double(originalSize) * (1 - Self.minimumWebPGain))
+            : originalSize
         let keptOriginal = !transformed
-            && (compressedSize <= 0 || compressedSize >= originalSize)
+            && (compressedSize <= 0 || compressedSize >= keepThreshold)
 
         let outputURL = destinationURL(for: source, format: format, mode: settings.outputMode)
         let outputSize = try publish(
@@ -90,9 +104,19 @@ public enum CompressionEngine {
         // 候选失败会向外抛出：开关打开却静默不产出，用户会以为文件已生成。
         // 取消也必须传出去，否则任务会翻回「已完成」
         var converted: [ConvertedOutput] = []
+        var skipped: [ConversionTarget] = []
+        // 源文件自身永远受保护，即使调用方没传
+        let protected = Set(protectedPaths.map(\.standardizedFileURL))
+            .union([source.standardizedFileURL])
         for target in ConversionTarget.allCases
         where settings.conversions.contains(target) && target.applies(to: format) {
             try Task.checkCancellation()
+            guard !protected.contains(
+                candidateURL(target, source: source, outputURL: outputURL).standardizedFileURL
+            ) else {
+                skipped.append(target)
+                continue
+            }
             if let candidate = try await candidate(
                 target, source: source, outputURL: outputURL, settings: settings
             ) {
@@ -105,7 +129,8 @@ public enum CompressionEngine {
             originalSize: originalSize,
             outputSize: outputSize,
             keptOriginal: keptOriginal,
-            converted: converted
+            converted: converted,
+            skipped: skipped
         )
     }
 
@@ -273,15 +298,23 @@ public enum CompressionEngine {
         )
     }
 
-    /// 候选文件落盘：与主输出同目录，命名规则由 ConversionTarget 提供
+    /// 候选文件的目标路径：与主输出同目录，命名规则由 ConversionTarget 提供。
+    /// 冲突预判与实际落盘共用此函数，避免两处规则走偏
+    static func candidateURL(
+        _ target: ConversionTarget, source: URL, outputURL: URL
+    ) -> URL {
+        let baseName = source.deletingPathExtension().lastPathComponent
+        return outputURL.deletingLastPathComponent()
+            .appendingPathComponent("\(baseName)\(target.nameSuffix).\(target.fileExtension)")
+    }
+
+    /// 候选文件落盘
     private static func publishCandidate(
         _ temp: URL, target: ConversionTarget, source: URL, outputURL: URL
     ) throws -> ConvertedOutput {
         let fm = FileManager.default
-        let baseName = source.deletingPathExtension().lastPathComponent
         // 输出目录由主输出的 publish 建好，这里不必重复创建
-        let destination = outputURL.deletingLastPathComponent()
-            .appendingPathComponent("\(baseName)\(target.nameSuffix).\(target.fileExtension)")
+        let destination = candidateURL(target, source: source, outputURL: outputURL)
         try? fm.removeItem(at: destination)
         // move 而非 copy：temp 是本次刚生成的临时文件，同卷下退化为 rename
         try fm.moveItem(at: temp, to: destination)

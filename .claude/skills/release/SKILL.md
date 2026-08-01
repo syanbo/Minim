@@ -10,10 +10,14 @@ description: 发布轻图 Minim 的新版本——改版本号、打 DMG、验�
 ## 前置检查（任何一项不通过就停下来问用户）
 
 ```bash
+git fetch --tags            # gh release create 只在远端建 tag，本地不会自动有
 git status --short          # 必须干净
 git log origin/main..HEAD   # 必须为空（已推送）
 make test                   # 必须全绿
 ```
+
+**必须先 `git fetch --tags`**，否则下一步取改动清单时 `git log v<上个版本>..HEAD`
+会报 `unknown revision`。
 
 有未提交改动或未推送提交时**不要自作主张提交或推送**，报告给用户让他决定。
 
@@ -76,8 +80,13 @@ gh release create v<版本号> "dist/Minim-<版本号>.dmg" \
   --notes-file /tmp/minim-notes.md
 ```
 
-发布说明用中文，按「本次改了什么 / 安装方式 / 系统要求」三段写。
-改动内容从 `git log <上个 tag>..HEAD --oneline` 提取，不要凭印象编。
+**发布说明要简洁**——用户是来下载的，不是来读文档的。控制在 15 行以内：
+
+- `### 新增` / `### 修复` —— 每条一行，只写用户感知得到的变化，不写重构和内部改动
+- `### 安装` —— brew 命令 + DMG 说明 + 系统要求 + Gatekeeper 一句话
+
+功能细节放 README，别在这里重复。改动清单从
+`git log v<上个版本>..HEAD --oneline` 提取，**不要凭印象编**。
 
 ## 6. 核对附件名
 

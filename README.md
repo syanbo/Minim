@@ -11,8 +11,8 @@ SwiftUI 编写，原生 Apple Silicon（arm64），支持深色模式，压缩�
 
 ## 安装
 
-目前从源码构建（见下方[构建](#构建)）。`make dmg` 会打出可分发的 DMG，
-所有依赖的压缩工具都已打进 app bundle，**拿到 DMG 的人不需要装 Homebrew**。
+从 [Releases](https://github.com/syanbo/Minim/releases/latest) 下载 DMG，拖进「应用程序」即可。
+所有依赖的压缩工具都已打进 app bundle，**装完不需要 Homebrew**。
 
 首次打开若提示「无法验证开发者」，在「系统设置 → 隐私与安全性」里点「仍要打开」
 （ad-hoc 签名，未做公证）。

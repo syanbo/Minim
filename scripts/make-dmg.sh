@@ -7,7 +7,9 @@ APP="dist/轻图.app"
 [[ -d "$APP" ]] || { echo "请先执行 make app"; exit 1; }
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$APP/Contents/Info.plist")"
-DMG="dist/轻图-${VERSION}.dmg"
+# 文件名用 ASCII：GitHub Release 上传时会过滤掉非 ASCII 字符，
+# 「轻图-1.0.0.dmg」会变成「-1.0.0.dmg」。挂载后的卷名仍是中文
+DMG="dist/Minim-${VERSION}.dmg"
 STAGING="dist/dmg-staging"
 
 rm -rf "$STAGING" "$DMG"

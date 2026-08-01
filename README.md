@@ -4,12 +4,16 @@ macOS 原生图片压缩工具。SwiftUI 编写，原生支持 Apple Silicon（a
 
 ## 功能
 
-- 拖拽 / 选择 PNG、JPG、GIF 批量压缩（支持拖入文件夹）
+- 拖拽 / 选择 PNG、JPG、WebP、GIF、APNG 批量压缩（支持拖入文件夹）
 - 质量档位：10% / 30% / 50% / 80% / 默认 / 保真
 - **JPG 智能压缩**：解析量化表估算原图质量，据此决定输出质量，避免重复压缩劣化
 - PNG：pngquant 有损量化（转 png8）→ oxipng 无损优化；已是索引色或保真档只走无损
 - GIF：gifsicle -O3 + 按档位 --lossy
-- 可选同时生成 WebP（libwebp 源码编译，GIF 不支持）
+- 静态 WebP：ImageIO 解码 + libwebp 重编码（无损 / 有损双候选取更优）
+- **三个转换开关**，语义统一为「额外输出一份 X」，不替换主输出：
+  - **WebP** — PNG / JPG 额外输出 `.webp`
+  - **JPG** — PNG / 静态 WebP 额外输出 `名字-jpg.jpg`（透明部分平铺白底）
+  - **PNG** — JPG / 静态 WebP 额外输出 `名字-png.png`（无损，保留透明）
 - 压缩结果不比原图小时自动保留原图（标记「已最优」）
 - 输出到源目录下的 `minim/` 固定文件夹，**文件名保持不变**（整个文件夹压完可直接替换回
   项目）；WebP 与主输出同目录、同名换扩展
@@ -17,8 +21,6 @@ macOS 原生图片压缩工具。SwiftUI 编写，原生支持 Apple Silicon（a
 - 拖入文件夹时自动跳过 `minim` 输出目录，不会把自己的产物再压一遍
 - **裁剪缩放**：设定宽×高后，「等比缩放」缩到框内不变形；「居中裁剪」缩放覆盖后裁出精确
   尺寸。超过原图的维度按原图处理（不放大），GIF 用 gifsicle 缩放（动图帧保留）
-- **转 JPG**：开启后每张 PNG 额外输出一张 JPG（`名字-jpg.jpg`，透明部分平铺白底），
-  不替换主输出
 - **动图转换**：GIF / 动图 WebP 拖入后**不自动处理**——先展示基础信息（帧数/时长/循环/
   尺寸），行内单独设置输出格式（GIF 压缩 / 动画 WebP / APNG 无损）、**抽帧**（每 N 帧取 1，
   总时长不变）、**循环次数**（保留 / 无限 / 自定义），点「开始」执行；多个待开始时状态栏可
@@ -36,7 +38,7 @@ make app      # 构建并组装 dist/轻图.app（含工具打包 + ad-hoc 签�
 make run      # 构建并启动
 make test     # MinimCore 单元测试
 make dmg      # 打包 DMG
-swift run minim-cli photo.jpg -q auto --webp   # 命令行版
+swift run minim-cli photo.webp -q auto --png --jpg   # 命令行版
 ```
 
 brew 工具会被拷入 app bundle（`Contents/Helpers` + `Contents/Frameworks`，动态库自动

@@ -116,6 +116,16 @@ SwiftUI 编写，原生 Apple Silicon（arm64），支持深色模式，压缩�
   --detect                         只检测 JPEG 质量，不压缩
 ```
 
+装进 PATH（默认 `~/.local/bin`，不需要 sudo）：
+
+```bash
+make install                      # 或 make install PREFIX=/usr/local（需 sudo）
+make uninstall
+```
+
+> 注意：这样安装的 `minim-cli` 依赖 Homebrew 的 pngquant / oxipng / gifsicle。
+> 只有 `.app` 才会把这些工具打进 bundle。
+
 ```bash
 # 批量压缩，同时输出 WebP
 minim-cli assets/*.png -q auto --webp

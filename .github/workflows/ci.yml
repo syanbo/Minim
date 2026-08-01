@@ -17,7 +17,7 @@ jobs:
     # 需要 Swift 6（count(where:) 等 API），macos-14 自带的 Xcode 太旧
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Swift 版本
         run: swift --version
@@ -35,7 +35,7 @@ jobs:
     # 需要 Swift 6（count(where:) 等 API），macos-14 自带的 Xcode 太旧
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # 组装 .app 需要把这些工具拷进 bundle，这一步才需要 brew
       - name: 安装压缩工具

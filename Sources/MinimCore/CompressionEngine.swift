@@ -63,6 +63,11 @@ public enum CompressionEngine {
                 source: source, to: temp, preset: settings.quality,
                 resize: settings.resize, anim: settings.anim
             )
+        case .webp:
+            // 静态 WebP：ImageIO 解码 → libwebp 重编码（双候选取更优）
+            try WebPEncoder.encode(
+                source: source, to: temp, preset: settings.quality, resize: settings.resize
+            )
         case .webpAnimated, .apng:
             // 只会在动图解码失败时走到这里
             throw ExternalToolError(tool: "engine", message: "动图解码失败")
@@ -82,10 +87,11 @@ public enum CompressionEngine {
             keptOriginal: keptOriginal, originalSize: originalSize, producedSize: compressedSize
         )
 
-        // WebP：从源图生成（保证质量基准一致），GIF 动图不支持
+        // WebP：从源图生成（保证质量基准一致）。GIF 动图不支持；
+        // WebP 输入的主输出本身就是 .webp，同名同目录会把主输出覆盖掉，必须跳过
         var webpURL: URL?
         var webpSize: Int64?
-        if settings.generateWebP, format != .gif {
+        if settings.generateWebP, format != .gif, format != .webp {
             let target = webpDestinationURL(for: source, outputURL: outputURL)
             try? fm.createDirectory(
                 at: target.deletingLastPathComponent(), withIntermediateDirectories: true
@@ -97,15 +103,20 @@ public enum CompressionEngine {
             webpSize = target.fileSizeBytes
         }
 
-        // 自动转换格式：额外输出一个候选文件（不替换主输出），只对静态 PNG 有效
-        var convertedURL: URL?
-        var convertedSize: Int64?
-        if settings.autoConvert, format == .png,
-           let converted = try? jpegCandidate(
+        // 转换开关：额外输出候选文件（不替换主输出）。开哪个出哪个，
+        // 输入格式与目标格式相同时跳过（PNG 不再出 PNG、JPG 不再出 JPG）
+        var converted: [ConvertedOutput] = []
+        if settings.autoConvert, format == .png || format == .webp,
+           let candidate = try? jpegCandidate(
                source: source, outputURL: outputURL, settings: settings
            ) {
-            convertedURL = converted.url
-            convertedSize = converted.size
+            converted.append(candidate)
+        }
+        if settings.convertToPNG, format == .jpeg || format == .webp,
+           let candidate = try? await pngCandidate(
+               source: source, outputURL: outputURL, settings: settings
+           ) {
+            converted.append(candidate)
         }
 
         return CompressionResult(
@@ -115,8 +126,7 @@ public enum CompressionEngine {
             webpURL: webpURL,
             webpSize: webpSize,
             keptOriginal: keptOriginal,
-            convertedURL: convertedURL,
-            convertedSize: convertedSize
+            converted: converted
         )
     }
 
@@ -197,17 +207,16 @@ public enum CompressionEngine {
         )
     }
 
-    /// 静态 PNG 的转 JPG 候选（额外文件，不替换主输出）
+    /// 转 JPG 候选（额外文件，不替换主输出）。适用于 PNG 与静态 WebP
     private static func jpegCandidate(
         source: URL, outputURL: URL, settings: CompressionSettings
-    ) throws -> (url: URL, size: Int64)? {
+    ) throws -> ConvertedOutput? {
         guard let (image, analysis) = FormatConverter.analyze(
             source: source, resize: settings.resize
         ) else { return nil }
 
         let fm = FileManager.default
-        let candidateJPEG = fm.temporaryDirectory
-            .appendingPathComponent("minim", isDirectory: true)
+        let candidateJPEG = tempDir()
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("jpg")
         defer { try? fm.removeItem(at: candidateJPEG) }
@@ -220,12 +229,60 @@ public enum CompressionEngine {
         try FormatConverter.writeJPEG(flattened, to: candidateJPEG, quality: quality)
         guard candidateJPEG.fileSizeBytes > 0 else { return nil }
 
+        return try publishCandidate(
+            candidateJPEG, source: source, outputURL: outputURL, suffix: "-jpg", ext: "jpg"
+        )
+    }
+
+    /// 转 PNG 候选（额外文件，不替换主输出）。适用于 JPG 与静态 WebP。
+    /// PNG 无损，不需要质量启发式；写出后仍走一遍 PNG 压缩流水线减小体积
+    private static func pngCandidate(
+        source: URL, outputURL: URL, settings: CompressionSettings
+    ) async throws -> ConvertedOutput? {
+        guard let (image, _) = FormatConverter.analyze(
+            source: source, resize: settings.resize
+        ) else { return nil }
+
+        let fm = FileManager.default
+        let raw = tempDir().appendingPathComponent(UUID().uuidString + ".raw.png")
+        let optimized = tempDir().appendingPathComponent(UUID().uuidString + ".png")
+        defer {
+            try? fm.removeItem(at: raw)
+            try? fm.removeItem(at: optimized)
+        }
+
+        try ImageResizer.writePNG(image, to: raw)
+        guard raw.fileSizeBytes > 0 else { return nil }
+        // 压缩失败不致命，退回未优化的 PNG
+        try? await PNGCompressor.compress(source: raw, to: optimized, preset: settings.quality)
+        let produced = optimized.fileSizeBytes > 0 ? optimized : raw
+
+        return try publishCandidate(
+            produced, source: source, outputURL: outputURL, suffix: "-png", ext: "png"
+        )
+    }
+
+    /// 候选文件落盘：与主输出同目录，命名 `<原名><suffix>.<ext>`
+    private static func publishCandidate(
+        _ temp: URL, source: URL, outputURL: URL, suffix: String, ext: String
+    ) throws -> ConvertedOutput {
+        let fm = FileManager.default
         let baseName = source.deletingPathExtension().lastPathComponent
         let target = outputURL.deletingLastPathComponent()
-            .appendingPathComponent("\(baseName)-jpg.jpg")
+            .appendingPathComponent("\(baseName)\(suffix).\(ext)")
+        try? fm.createDirectory(
+            at: target.deletingLastPathComponent(), withIntermediateDirectories: true
+        )
         try? fm.removeItem(at: target)
-        try fm.copyItem(at: candidateJPEG, to: target)
-        return (target, target.fileSizeBytes)
+        try fm.copyItem(at: temp, to: target)
+        return ConvertedOutput(url: target, size: target.fileSizeBytes)
+    }
+
+    private static func tempDir() -> URL {
+        let dir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("minim", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
     }
 
     /// 落盘：keptOriginal 时把原文件拷到目标，否则用临时产物替换目标；返回最终输出大小

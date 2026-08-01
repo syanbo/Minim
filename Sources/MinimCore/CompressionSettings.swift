@@ -133,7 +133,8 @@ public enum AnimOutputFormat: String, Sendable, CaseIterable, Codable {
             return self == .apng ? .apng : .webp
         case .apng:
             return self == .webp ? .webp : .apng
-        case .png, .jpeg:
+        case .png, .jpeg, .webp:
+            // 静态图不走动图转换路径
             return nil
         }
     }
@@ -218,9 +219,10 @@ public struct CompressionSettings: Sendable, Equatable {
     public var generateWebP: Bool
     public var outputMode: OutputMode
     public var resize: ResizeSpec?
-    /// 自动转换格式：无透明 PNG 尝试转 JPG、低色数 JPG 尝试转 PNG，
-    /// 更小才保留，作为额外文件输出（不替换主输出，复刻原版）
+    /// 转 JPG：PNG / 静态 WebP 额外输出一份 JPG（透明填白底），不替换主输出
     public var autoConvert: Bool
+    /// 转 PNG：JPG / 静态 WebP 额外输出一份无损 PNG，不替换主输出
+    public var convertToPNG: Bool
     /// 动图转换设置
     public var anim: AnimSettings
 
@@ -230,6 +232,7 @@ public struct CompressionSettings: Sendable, Equatable {
         outputMode: OutputMode = .fixedSubdir(OutputMode.defaultSubdirName),
         resize: ResizeSpec? = nil,
         autoConvert: Bool = false,
+        convertToPNG: Bool = false,
         anim: AnimSettings = AnimSettings()
     ) {
         self.quality = quality
@@ -237,6 +240,7 @@ public struct CompressionSettings: Sendable, Equatable {
         self.outputMode = outputMode
         self.resize = resize
         self.autoConvert = autoConvert
+        self.convertToPNG = convertToPNG
         self.anim = anim
     }
 }

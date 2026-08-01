@@ -79,7 +79,7 @@ gh run watch "$(gh run list --workflow=Release --limit 1 --json databaseId --jq 
 | 校验版本号与 tag 一致 | Info.plist 忘改，或 tag 打错 |
 | 验证 bundle 完整性 | 工具没打进 bundle / 签名坏了，**这是最该拦住的情况** |
 | 生成发布说明 | CHANGELOG 里没有该版本的小节 |
-| 同步 Homebrew cask | 缺 `TAP_TOKEN`，或 tap 仓库的 cask 格式变了 |
+| 同步 Homebrew cask | 缺 `TAP_DEPLOY_KEY`，或 tap 仓库的 cask 格式变了 |
 
 改完重来要先删 tag：`git tag -d v<版本号> && git push --delete origin v<版本号>`，
 Release 若已建出来也要 `gh release delete v<版本号>`。
@@ -95,9 +95,16 @@ brew update && brew upgrade --cask minim
 
 ## 一次性配置
 
-cask 同步需要本仓库有 secret **`TAP_TOKEN`**：一个对 `syanbo/homebrew-tap` 有
-`contents: write` 的细粒度 PAT。缺了这一步 CI 的 cask job 会红（刻意不静默跳过——
-cask 不更新的话 `brew upgrade` 的用户会永远停在旧版本且没有任何报错）。
+cask 同步需要本仓库有 secret **`TAP_DEPLOY_KEY`**：`syanbo/homebrew-tap` 上那把
+**可写 deploy key** 的私钥（已配好）。用 deploy key 而不是 PAT，是因为它的权限只限
+那一个仓库、不含用户级权限，而且不会到期。
+
+要换钥匙：本地 `ssh-keygen -t ed25519 -f tapkey -N ""`，
+`gh api repos/syanbo/homebrew-tap/keys -X POST -f title=... -f key="$(cat tapkey.pub)" -F read_only=false`
+加公钥，`gh secret set TAP_DEPLOY_KEY --repo syanbo/Minim < tapkey` 存私钥，再删掉旧 key。
+
+缺这个 secret 时 CI 的 cask job 会红（刻意不静默跳过——cask 不更新的话
+`brew upgrade` 的用户会永远停在旧版本且没有任何报错）。
 
 ## 不要做的事
 

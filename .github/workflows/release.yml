@@ -115,21 +115,22 @@ jobs:
     runs-on: macos-15
     steps:
       # 不更新 cask 的话 brew 用户会静默停在旧版本，所以这里宁可红也不静默跳过
-      - name: 检查 tap 令牌
+      - name: 检查 tap 部署密钥
         env:
-          TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
+          TAP_DEPLOY_KEY: ${{ secrets.TAP_DEPLOY_KEY }}
         run: |
-          if [ -z "${TAP_TOKEN:-}" ]; then
-            echo "❌ 缺少 secret TAP_TOKEN"
-            echo "   需要一个对 syanbo/homebrew-tap 有 contents:write 的细粒度 PAT，"
-            echo "   存到本仓库 Settings → Secrets and variables → Actions"
+          if [ -z "${TAP_DEPLOY_KEY:-}" ]; then
+            echo "❌ 缺少 secret TAP_DEPLOY_KEY"
+            echo "   它是 syanbo/homebrew-tap 上那把可写 deploy key 的私钥，"
+            echo "   存在本仓库 Settings → Secrets and variables → Actions"
             exit 1
           fi
 
+      # 用 deploy key 而不是 PAT：权限只限 homebrew-tap 一个仓库，且不会到期
       - uses: actions/checkout@v4
         with:
           repository: syanbo/homebrew-tap
-          token: ${{ secrets.TAP_TOKEN }}
+          ssh-key: ${{ secrets.TAP_DEPLOY_KEY }}
 
       # sha256 必须取 Release 上那一份：本地重打包的 DMG 字节不一致，装的人会校验失败
       - name: 更新 version 与 sha256

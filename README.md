@@ -204,6 +204,10 @@ brew 工具会被拷进 app bundle（`Contents/Helpers` + `Contents/Frameworks`�
 | [apngasm](https://github.com/apngasm/apngasm) | APNG 差分装配 | 随仓库 `Vendor/` |
 | [libwebp](https://github.com/SDWebImage/libwebp-Xcode) | WebP 编码 | SwiftPM 源码编译 |
 
+## 更新日志
+
+见 [CHANGELOG.md](CHANGELOG.md)。
+
 ## 许可
 
 [MIT](LICENSE) © 2026 少言syanbo

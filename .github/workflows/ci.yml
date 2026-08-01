@@ -1,0 +1,69 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: 构建与测试
+    # macos-14 起才是 arm64 runner；本项目只支持 Apple Silicon
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift 版本
+        run: swift --version
+
+      # 刻意不装 pngquant/oxipng/gifsicle：
+      # 单元测试不该依赖外部工具，这一步顺带守住这条约束
+      - name: 构建
+        run: swift build --arch arm64
+
+      - name: 测试
+        run: swift test --arch arm64
+
+  bundle:
+    name: 组装 .app
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      # 组装 .app 需要把这些工具拷进 bundle，这一步才需要 brew
+      - name: 安装压缩工具
+        run: brew install pngquant oxipng gifsicle
+
+      - name: make app
+        run: make app
+
+      # 验证 bundle 完整——编译通过不代表工具打进去了。
+      # 用清空的 PATH 运行，确保产物不依赖 Homebrew 环境
+      - name: 验证 bundle 不依赖 Homebrew
+        run: |
+          set -euo pipefail
+          for t in pngquant oxipng gifsicle apngasm; do
+            printf '%-10s' "$t"
+            env -i PATH=/usr/bin:/bin "dist/轻图.app/Contents/Helpers/$t" --version | head -1
+          done
+          codesign --verify --deep --strict "dist/轻图.app"
+
+      - name: 冒烟测试：真的压一张图
+        run: |
+          set -euo pipefail
+          swift build -c release --arch arm64
+          mkdir -p /tmp/smoke
+          # 从系统图标造一张真图，避免往仓库里塞测试素材。
+          # 用 CoreTypes.bundle 而不是壁纸——壁纸是随版本变化的软链
+          sips -s format png --resampleWidth 256 \
+            /System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/GenericApplicationIcon.icns \
+            --out /tmp/smoke/sample.png >/dev/null
+          .build/release/minim-cli /tmp/smoke/sample.png --webp -o /tmp/smoke/out
+          test -f /tmp/smoke/out/sample.png
+          test -f /tmp/smoke/out/sample.webp
+          echo "✓ 压缩与 WebP 输出正常"

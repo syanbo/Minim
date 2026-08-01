@@ -61,10 +61,13 @@ codesign --verify --deep --strict "/tmp/minim-verify/轻图.app"
 
 四个工具任一报错或签名校验失败 → **停止发布**，报告给用户。
 
-## 4. 提交版本号变更
+## 4. 更新 CHANGELOG 并提交
+
+在 `CHANGELOG.md` 顶部加一节 `## [<版本号>] - YYYY-MM-DD`，写用户可感知的变化，
+底部补上链接引用。内容与 Release 说明一致（Release 说明是它的精简版）。
 
 ```bash
-git add Resources/Info.plist
+git add Resources/Info.plist CHANGELOG.md
 git commit -m "chore: 版本号更新为 <版本号>"
 git push origin main
 ```

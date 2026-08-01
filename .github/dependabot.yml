@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # 唯一的外部依赖是 libwebp-Xcode，更新不频繁，每月看一次就够
+  - package-ecosystem: swift
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build"
+
+  # CI 用的 actions 也会有安全更新（如 actions/checkout）
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "ci"

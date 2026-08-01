@@ -3,7 +3,7 @@
 本文件记录用户可感知的变化。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [未发布]
+## [1.2.0] - 2026-08-01
 
 ### 新增
 
@@ -55,5 +55,6 @@
 - **取消操作生效**：此前取消后候选文件仍会落盘，任务翻回「已完成」
 - **命令行未知选项直接报错**，不再被当作图片路径导致「不支持的图片格式」
 
+[1.2.0]: https://github.com/syanbo/Minim/releases/tag/v1.2.0
 [1.1.0]: https://github.com/syanbo/Minim/releases/tag/v1.1.0
 [1.0.0]: https://github.com/syanbo/Minim/releases/tag/v1.0.0
